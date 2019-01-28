@@ -1,0 +1,16 @@
+<launch>
+	
+	<!-- Create the world in Gazebo -->
+	<include file = "$(find f1tenth_gazebo)/launch/f1tenth_corridor.launch"/>
+
+	<!--<node pkg="f1tenth_control" type="f1tenth_masterNode.py" name="rl_master" output="screen"/>-->
+	<!-- Launch rosbag for test result recording-->
+	<node pkg="rosbag" type="record" name="rosbag_record_test" output="screen" 
+			args="record -o test /gazebo/link_states /ackermann_cmd /scan /debug/reward"
+
+		/>
+
+
+
+
+</launch>

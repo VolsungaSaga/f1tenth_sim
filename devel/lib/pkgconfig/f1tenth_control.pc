@@ -1,8 +1,0 @@
-prefix=/home/labpc/f1tenth_sim/devel
-
-Name: f1tenth_control
-Description: Description of f1tenth_control
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/labpc/f1tenth_sim/devel/lib 
-Requires: 

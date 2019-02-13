@@ -1,9 +1,8 @@
 <launch>
 	
-	<!-- Argument for the launch file to include. Each world must spawn the robot in different locations, so we'll parameterize it in this file. -->
+	<!-- Argument for launching different worlds. -->
+	<arg name= "world" default="corridor" />
 
-	<arg name="world" default="corridor" />
-	
 	<!-- Create the world in Gazebo -->
 	<include file = "$(find f1tenth_gazebo)/launch/f1tenth_$(arg world).launch"/>
 

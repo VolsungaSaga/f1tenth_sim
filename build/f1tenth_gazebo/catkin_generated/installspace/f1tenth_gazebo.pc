@@ -1,8 +1,0 @@
-prefix=/home/labpc/f1tenth_sim/install
-
-Name: f1tenth_gazebo
-Description: Description of f1tenth_gazebo
-Version: 0.1.0
-Cflags: 
-Libs: -L/home/labpc/f1tenth_sim/install/lib 
-Requires: 

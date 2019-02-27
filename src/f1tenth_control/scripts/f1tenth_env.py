@@ -7,6 +7,7 @@ import rospy
 import math
 import random
 #import matplotlib.pyplot as plt
+from f1tenth_util import *
 from gazebo_msgs.msg import LinkStates
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -15,6 +16,7 @@ from std_msgs.msg import Float64
 from geometry_msgs.msg import Pose, Twist
 
 from gym import core, spaces
+from gym import error, utils
 
 
 #TensorFlow imports
@@ -87,6 +89,8 @@ class CarEnvironment():
         self.minDistFromObstacle = 0.2
 
 
+        self.chassisLinkIndex = 1 #In the LinkStates message broadcast by Gazebo, the chassis's information is in the 2nd position in the LinkStates arrays.
+
         #Action, State Space defs:
         self.maxSpeed = 10.0
         self.minSpeed = 0.0
@@ -107,10 +111,10 @@ class CarEnvironment():
 
         ###REWARD FUNCTION CONSTANTS
 
-        self.chassisLinkIndex = 1 #In the LinkStates message broadcast by Gazebo, the chassis's information is in the 2nd position in the LinkStates arrays.
-
         self.alpha = 0.2 #The tuning parameter that will weigh different facets of the reward - the displacment per unit time portion and the minimum distance from an obstacle portion.
 
+
+        #Actions, Position
         self.currentAction_Speed = 0
         self.currentAction_Steer = 0
         self.currPos = [0]*2
@@ -128,7 +132,7 @@ class CarEnvironment():
         self.logReward = rospy.Publisher("/log/reward", Float64, queue_size=5)
         self.logPosition = rospy.Publisher("/log/car_pose", Pose, queue_size = 5)
         self.logVelocity = rospy.Publisher("/log/car_velocity", Twist, queue_size = 5)
-        self.logObservation = rospy.Publisher("/log/car_obs", )
+        self.logObservation = rospy.Publisher("/log/car_obs", Float64Array, queue_size = 10)
 
         rospy.loginfo("Environment initialization complete!")
 
@@ -159,25 +163,47 @@ class CarEnvironment():
 
         self.ackermannPub.publish(drivemsg)
 
-    def getCarDisplacement(self, currPos, prevPos):
+    def dist(self, currPos, prevPos):
         xy_displacement = numpy.array(self.currPos) - numpy.array(self.prevPos)
         distance_displacement = numpy.hypot(xy_displacement[0], xy_displacement[1])
         return distance_displacement        
 
 
-    def getReward(self):
+    def getReward(self, FUNCTION): #Function is a string that we'll check.
         rospy.loginfo("Timestep complete, rewarding agent.")
         #Reward is equal to the total displacement in a given timestep plus the minimum distance from an obstacle
-        reward = self.alpha *self.getCarDisplacement(self.currPos, self.prevPos) + (1-self.alpha)* 10*math.log(self.clamp(min(self.currObs) - self.minDistFromObstacle, 0.01, 100))
-        if(self.getCarDisplacement(self.currPos, self.prevPos) < self.minExpectedProgress):
+        reward = self.displacementReward(self.alpha, self.currPos, self.prevPos) + self.safetyReward(1-self.alpha, self.currObs) #(1-self.alpha)* 10*math.log(self.clamp(min(self.currObs) - self.minDistFromObstacle, 0.01, 100))
+        if(self.dist(self.currPos, self.prevPos) < self.minExpectedProgress):
             reward -= 10000
         rospy.logdebug("Reward:" + str(reward))
-        self.debugReward.publish(Float64(reward))
+        self.logReward.publish(Float64(reward))
         #self.timekeeper = 0
         return reward
 
+    #Safety Reward: Basically, reward for staying away from the walls.
+    def safetyReward(self, alpha, observation):
+        return (1-alpha)* 10*math.log(self.clamp(min(observation) - self.minDistFromObstacle, 0.01, 100))
+    #Displacement Reward: Reward is based on the car's immediate displacement
+    # in the xy plane, along with . 
+    def displacementReward(self, alpha, currPos, prevPos):
+        reward = alpha *self.dist(currPos, prevPos)
+        if(self.dist(currPos, prevPos) < self.minExpectedProgress):
+            reward -= 10000
+        return reward
 
+    #Gap Reward: A Reward for keeping the front of the car clear of obstacles.
+    def gapReward(self, alpha, observation):
+        #TODO: Get middle of observation.
+        leftIndex = len(observation) // 3
+        rightIndex = (len(observation) // 3) * 2
+        middleObs = observation[leftIndex:rightIndex]
 
+        reward = alpha * 10*math.log(self.clamp(min(middleObs), 0.01, 100))
+
+    # Checkpoint: [x , y]
+    def checkpointReward(self, alpha, checkpoint):
+        reward = alpha * self.dist(self.currPos, checkpoint)
+        return reward
 
     def getDone(self):
         # The experiment is done when the car has not made any forward progress in the last time step.
@@ -185,7 +211,7 @@ class CarEnvironment():
             return False
 
         #Case 1: No progress.
-        distance_displacement = self.getCarDisplacement(self.currPos, self.prevPos)
+        distance_displacement = self.dist(self.currPos, self.prevPos)
         expected_displacement = self.currentSpeed * self.stepLength
         
         rospy.logdebug("Current Speed (Abs):" + str(self.currentSpeed))

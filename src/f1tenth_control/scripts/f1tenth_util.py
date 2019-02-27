@@ -28,8 +28,9 @@ def getArcs(n,ranges):
     return arcs
 
 
-def displacementReward( displacement, weight):
+def displacementReward( currPos, prevPos, weight):
     return weight*displacement
 def safetyReward( distFromWall, minDistThreshold, weight):
     return weight * 10*math.log(clamp(min(distFromWall - minDistThreshold, 0.01, 100)))
 
+def gapReward(observation, weight)

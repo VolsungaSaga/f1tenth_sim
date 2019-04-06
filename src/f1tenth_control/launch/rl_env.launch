@@ -2,18 +2,25 @@
 	
 	<!-- Argument for launching different worlds. -->
 	<arg name= "world" default="corridor" />
+	<arg name= "gui" default="true"/>
 
 	<!-- Create the world in Gazebo -->
-	<include file = "$(find f1tenth_gazebo)/launch/f1tenth_$(arg world).launch"/>
+	<include file = "$(find f1tenth_gazebo)/launch/f1tenth_$(arg world).launch">
+		<arg name="gui" default="$(arg gui)"/>
+
+	</include>
 
 	<!--<node pkg="f1tenth_control" type="f1tenth_masterNode.py" name="rl_master" output="screen"/>-->
 	<!-- Launch rosbag for test result recording-->
 	<node pkg="rosbag" type="record" name="rosbag_record_test" output="screen" 
-			args="record -o test /gazebo/link_states /ackermann_cmd /scan /debug/reward"
+			args="record -o $(find f1tenth_control)/bag/test /log/car_pose /log/car_velocity /ackermann_cmd /log/car_obs /log/reward /eval/minObsAvg /eval/minObsRollAvg /eval/minObsWorst/eval/timeToGoalAvg /eval/timeToGoalWorst /eval/numWipeouts /eval/numeWipeoutsRoll"
 
 		/>
+
+	<node pkg="f1tenth_control" type="f1tenth_evalLogger.py" name="evaluator" output="screen"/>
 
 
 
 
 </launch>
+ 

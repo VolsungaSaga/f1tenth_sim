@@ -11,7 +11,7 @@
   <arg name="cmd_timeout" default="0.5"/>
   
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find f1tenth_gazebo)/worlds/corridor.world"/>
+    <arg name="world_name" value="$(find f1tenth_gazebo)/worlds/corridor_checkpoint.world"/>
     <!--arg name="world_name" value="$(find f1tenth_gazebo)/worlds/turtlebot_playground.world"/-->
     <arg name="paused" value="$(arg paused)"/>
     <arg name="use_sim_time" value="$(arg use_sim_time)"/>
@@ -26,7 +26,7 @@
   <arg name="z" default="0.1"/>
   <arg name="roll" default="0.0"/>
   <arg name="pitch" default="0.0"/>
-  <arg name="yaw" default="0.0"/>
+  <arg name="yaw" default="1.57"/>
 
 
   

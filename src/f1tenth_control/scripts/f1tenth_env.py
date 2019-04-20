@@ -218,7 +218,7 @@ class CarEnvironment():
     def performAction(self,action):
         #rospy.loginfo("In performAction(action):")
         #rospy.loginfo("Size of action array:" + str(len(action)))
-        rospy.logdebug("Suggested Action: " + str(action))
+        rospy.loginfo("Suggested Action: " + str(action))
 
         drivemsg = AckermannDriveStamped()
         drivemsg.header.stamp = rospy.Time.now()
@@ -226,7 +226,7 @@ class CarEnvironment():
         #The first parameter, speed, is on a -1,1 scale to accomodate DDPG's need to have equal in magnitude minimum and maximum action values
         #Therefore, I will denormalize it before sending it out.
         actual_speed = self.normalizeRange(action[0], self.minSpeed, self.maxSpeed, self.minSpeedNorm, self.maxSpeedNorm)
-        rospy.logdebug("Suggested Speed: " + str(actual_speed))
+        rospy.loginfo("Suggested Speed: " + str(actual_speed))
         drivemsg.drive.speed = actual_speed
         #drivemsg.drive.speed = 50
 
@@ -328,7 +328,11 @@ class CarEnvironment():
                 self.move_timer = rospy.Time.now()
             else:
                 if( rospy.Time.now() - self.move_timer > rospy.Duration(10.0)):
+<<<<<<< HEAD
                     rospy.logdebug("Car hasn't moved for 10 seconds! Resetting!")
+=======
+                    rospy.loginfo("Car hasn't moved for 10 seconds! Resetting!")
+>>>>>>> 0c82d85f117e000070425bb3a8c140d86255649c
                     self.move_timer_started = False
                     return True
 

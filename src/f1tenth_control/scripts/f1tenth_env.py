@@ -72,11 +72,15 @@ class CarEnvironment():
         #We're interested in the magnitude of the velocity, here.
         self.currentSpeed = math.hypot(twist_x, twist_y)
 
+        self.twist = data.twist[model_index]
+
         self.currPos[0] = data.pose[model_index].position.x
         self.currPos[1] = data.pose[model_index].position.y
 
         self.roll, self.pitch, self.yaw = self.quatToEuler(data.pose[model_index].orientation)
         rospy.logdebug("Car Yaw:{}".format(self.yaw))
+
+
 
         #Initialize/update checkpoint stuff.
         pylon_name_gz = "pylon"
@@ -88,6 +92,18 @@ class CarEnvironment():
             if len(self.checkpointList) <= 0:
                 rospy.logerr("No checkpoints found in this environment!")
                 rospy.shutdown() 
+
+        #We also want to calculate the relative heading of the checkpoint.
+        car_goal_xdiff = self.currPos[0] - self.currCheckpoint[0]
+        car_goal_ydiff = self.currPos[1] - self.currCheckpoint[1]
+
+        #TODO : When you come back from Georgia, reverse the vector!
+        car_facing_vec = [-1 * math.cos(self.yaw), -1 * math.sin(self.yaw)]
+
+        theta_c_g = math.atan2(car_facing_vec[1], car_facing_vec[0]) - math.atan2(car_goal_ydiff, car_goal_xdiff)
+        self.relative_yaw = theta_c_g
+        rospy.logdebug("Rel Angle Car_Goal: {}".format(theta_c_g))
+
 
         #Publish car pose info to log topic.
         self.logPosition.publish(data.pose[model_index])
@@ -106,15 +122,9 @@ class CarEnvironment():
 
         #rospy.loginfo(arc_avgs)
 
-        #We also want to calculate the relative heading of the checkpoint.
-        car_goal_xdiff = self.currPos[0] - self.currCheckpoint[0]
-        car_goal_ydiff = self.currPos[1] - self.currCheckpoint[1]
-
-        theta_c_g = angles.normalize_angle_positive(self.yaw - math.atan2(car_goal_ydiff, car_goal_xdiff))
-        rospy.logdebug("Rel Angle Car_Goal: {}".format(theta_c_g))
 
         self.currObs = arc_avgs
-        numpy.append(self.currObs,theta_c_g)
+        numpy.append(self.currObs,self.relative_yaw)
         #rospy.loginfo(len(self.currObs))
         obsMsg = Float64MultiArray()
         obsMsg.data = self.currObs
@@ -126,7 +136,8 @@ class CarEnvironment():
         return obs[0:-1]
 
 
-    def __init__(self):
+    #We also pass in a dictionary of weights
+    def __init__(self, checkWeight = 1.25, gapWeight = 0.1, safetyWeight = 0.0 ):
         #rospy.init_node("car-environment")
         self.currentLIDARReading = [1]*1081
         self.currObs = None
@@ -141,7 +152,7 @@ class CarEnvironment():
         self.minDistFromObstacle = 0.2
 
         #Action, State Space defs:
-        self.maxSpeed = 10.0
+        self.maxSpeed = 1.0
         self.minSpeed = 0.0
         self.maxSpeedNorm = 1.0
         self.minSpeedNorm = -1.0
@@ -160,11 +171,17 @@ class CarEnvironment():
 
         self.alpha = 0.2 #The tuning parameter that will weigh different facets of the reward.
 
+        self.checkpointWeight = checkWeight
+        self.gapWeight = gapWeight
+        self.safetyWeight = safetyWeight
 
         self.currCheckpoint = None
         self.checkpointList = []
         self.checkpointDistTolerance = 0.1
         self.checkpointLoop = False
+
+        self.move_timer = rospy.Duration(0.0)
+        self.move_timer_started = False
 
         #Actions, Position, Pose
         self.currentAction_Speed = 0
@@ -176,7 +193,10 @@ class CarEnvironment():
         self.pitch = 0.
         self.yaw = 0. #Roll, pitch, yaw
 
+        self.relative_yaw = 0.
+
         self.currentSpeed = 0.
+        self.twist = Twist()
         #self.timekeeper = 0 #Records how much time has passed between getReward calls. 
         self.linkStatesSub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.modelStatesCallback)
         self.scanSub = rospy.Subscriber("scan",LaserScan, self.scanCallback)
@@ -197,7 +217,7 @@ class CarEnvironment():
     def performAction(self,action):
         #rospy.loginfo("In performAction(action):")
         #rospy.loginfo("Size of action array:" + str(len(action)))
-        rospy.logdebug("Suggested Action: " + str(action))
+        rospy.loginfo("Suggested Action: " + str(action))
 
         drivemsg = AckermannDriveStamped()
         drivemsg.header.stamp = rospy.Time.now()
@@ -205,7 +225,7 @@ class CarEnvironment():
         #The first parameter, speed, is on a -1,1 scale to accomodate DDPG's need to have equal in magnitude minimum and maximum action values
         #Therefore, I will denormalize it before sending it out.
         actual_speed = self.normalizeRange(action[0], self.minSpeed, self.maxSpeed, self.minSpeedNorm, self.maxSpeedNorm)
-        rospy.logdebug("Suggested Speed: " + str(actual_speed))
+        rospy.loginfo("Suggested Speed: " + str(actual_speed))
         drivemsg.drive.speed = actual_speed
         #drivemsg.drive.speed = 50
 
@@ -228,7 +248,7 @@ class CarEnvironment():
     def getReward(self):
         rospy.logdebug("Timestep complete, rewarding agent.")
 
-        reward = self.checkpointReward(1., self.currCheckpoint) + self.gapReward(self.alpha, self.getArcsFromObs(self.currObs)) + self.safetyReward(1-self.alpha, self.getArcsFromObs(self.currObs))
+        reward = self.checkpointReward(1.25, self.currCheckpoint) + self.gapReward(0.1, self.getArcsFromObs(self.currObs)) + self.safetyReward(0.0, self.getArcsFromObs(self.currObs))
 
         self.logReward.publish(Float64(reward))
         return reward
@@ -236,7 +256,7 @@ class CarEnvironment():
     #Safety Reward: Basically, reward for staying away from the walls and staying upright.
     def safetyReward(self, alpha, observation):
         if(self.roll < -1.57 or self.roll > 1.57):
-            return -10000
+            return alpha * -10000
 
         return alpha * 10*math.log(self.clamp(min(observation) - self.minDistFromObstacle, 0.01, 100))
     #Displacement Reward: Reward is based on the car's immediate displacement
@@ -253,12 +273,30 @@ class CarEnvironment():
         rightIndex = (len(observation) // 3) * 2
         middleObs = observation[leftIndex:rightIndex]
 
-        reward = alpha * 10*math.log(self.clamp(min(middleObs), 0.01, 100))
+        reward = alpha * 10*math.log(self.clamp(min(middleObs), 0.0001, 100))
         return reward
 
     # Checkpoint: [x , y]
     def checkpointReward(self, alpha, currCheckpoint):
-        reward = alpha * -self.dist(self.currPos, currCheckpoint) + 50
+        #reward = alpha * -self.dist(self.currPos, currCheckpoint) + 50
+
+        #Get vector of car motion
+        car_velocity_vector = self.twist.linear
+
+        #Get vector of goal position relative to car.
+        car_goal_diff = [currCheckpoint[0] - self.currPos[0], currCheckpoint[1] - self.currPos[1]]  
+        car_to_goal_vector = Vector3(car_goal_diff[0], car_goal_diff[1], 0.)
+
+        #Normalize both.
+        norm_vel_vector = normalize_vector(car_velocity_vector)
+        norm_goal_vector = normalize_vector(car_to_goal_vector)
+        #Do dot product
+        dot = dotProduct(norm_vel_vector, norm_goal_vector)
+        rospy.logdebug("**Dot Product {}**".format(dot))
+
+        reward = alpha * dot
+
+        #Return scaled reward
         return reward
 
     def getDone(self):
@@ -281,8 +319,22 @@ class CarEnvironment():
         if(self.roll < -1.57 or self.roll > 1.57):
             rospy.loginfo("We've wiped out. Trial complete.")
             return True
+
+        #If we make no progress for 10 seconds, reset!
+        if(self.dist(self.currPos, self.prevPos) < 0.01): 
+            if self.move_timer_started == False:
+                self.move_timer_started = True
+                self.move_timer = rospy.Time.now()
+            else:
+                if( rospy.Time.now() - self.move_timer > rospy.Duration(10.0)):
+                    rospy.loginfo("Car hasn't moved for 10 seconds! Resetting!")
+                    self.move_timer_started = False
+                    return True
+
         else:
-            return False
+            self.move_timer_started = False
+
+        return False
 
 
 
@@ -306,6 +358,9 @@ class CarEnvironment():
         else:
             rospy.logerr("In env.reset(): self.currObs is None! Waiting for observations... ")
             time_start = rospy.get_rostime()
+            unpause_physics = rospy.ServiceProxy("/gazebo/unpause_physics", Empty)
+            unpaused = unpause_physics()
+
             while(self.currObs is None):
                 rospy.sleep(1)
             rospy.loginfo("Observations found! Resuming...")

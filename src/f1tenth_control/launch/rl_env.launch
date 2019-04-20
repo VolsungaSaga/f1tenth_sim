@@ -3,6 +3,8 @@
 	<!-- Argument for launching different worlds. -->
 	<arg name= "world" default="corridor" />
 	<arg name= "gui" default="true"/>
+	<arg name= "record" default="false"/>
+	<arg name= "record_out" default= "test"/>
 
 	<!-- Create the world in Gazebo -->
 	<include file = "$(find f1tenth_gazebo)/launch/f1tenth_$(arg world).launch">
@@ -12,8 +14,8 @@
 
 	<!--<node pkg="f1tenth_control" type="f1tenth_masterNode.py" name="rl_master" output="screen"/>-->
 	<!-- Launch rosbag for test result recording-->
-	<node pkg="rosbag" type="record" name="rosbag_record_test" output="screen" 
-			args="record -o $(find f1tenth_control)/bag/test /log/car_pose /log/car_velocity /ackermann_cmd /log/car_obs /log/reward /eval/minObsAvg /eval/minObsRollAvg /eval/minObsWorst/eval/timeToGoalAvg /eval/timeToGoalWorst /eval/numWipeouts /eval/numeWipeoutsRoll"
+	<node pkg="rosbag" type="record" name="rosbag_record_test" output="screen" if="$(arg record)" 
+			args="record -o $(find f1tenth_control)/bag/$(arg record_out) /log/car_pose /log/car_velocity /ackermann_cmd /log/car_obs /log/reward /eval/minObsAvg /eval/minObsRollAvg /eval/minObsWorst/eval/timeToGoalAvg /eval/timeToGoalWorst /eval/numWipeouts /eval/numeWipeoutsRoll"
 
 		/>
 

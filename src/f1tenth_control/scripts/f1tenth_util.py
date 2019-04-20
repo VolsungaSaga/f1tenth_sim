@@ -11,7 +11,7 @@ from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDriveStamped
 from std_srvs.srv import Empty
 from std_msgs.msg import Float64, Float64MultiArray
-from geometry_msgs.msg import Pose, Twist   
+from geometry_msgs.msg import Pose, Twist, Vector3   
 
 def dist(pose1, pose2): 
     xy_displacement = numpy.array(pose1) - numpy.array(pose2)
@@ -45,6 +45,24 @@ def normalizeRange(x, a, b, x_min, x_max):
     #Given a raw measurement (and raw min/max), normalize it into the range specified by [a,b]
     ret = ((b-a)*(x-x_min))/(x_max - x_min) + a
     return ret
+
+''' 
+vector must have x,y,z fields (Vector3)
+'''
+def normalize_vector(vector):
+    #To normalize a vector, you divide each component by the vector magnitude.
+    old_vector_np = numpy.array([vector.x, vector.y, vector.z])
+
+    vector_mag = numpy.linalg.norm(old_vector_np)
+
+    new_vector = old_vector_np / vector_mag
+
+    return Vector3(new_vector[0],new_vector[1],new_vector[2])
+
+def dotProduct(vector1, vector2):
+    dot = vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z
+
+    return dot
 
 def isArcOccupied(arc):
     return numpy.mean(arc) < 5

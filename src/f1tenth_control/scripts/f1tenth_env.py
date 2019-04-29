@@ -328,11 +328,8 @@ class CarEnvironment():
                 self.move_timer = rospy.Time.now()
             else:
                 if( rospy.Time.now() - self.move_timer > rospy.Duration(10.0)):
-<<<<<<< HEAD
-                    rospy.logdebug("Car hasn't moved for 10 seconds! Resetting!")
-=======
+
                     rospy.loginfo("Car hasn't moved for 10 seconds! Resetting!")
->>>>>>> 0c82d85f117e000070425bb3a8c140d86255649c
                     self.move_timer_started = False
                     return True
 

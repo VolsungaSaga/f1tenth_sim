@@ -142,8 +142,11 @@ class CarEnvironment():
         self.currentLIDARReading = [1]*1081
         self.currObs = None
 
+     	self.time_step_size = rospy.get_param("/time_step_size")
+        self.update_rate = rospy.get_param("/update_rate")
 
-        self.stepLength = 0.2
+        self.dt_real = 0.2 / (self.time_step_size * self.update_rate)
+
         #Some constants to make our lives a bit easier
         self.cellsPerDegree = 6 #How many LIDAR cells does it take to cover one degree?
         self.degreesPerArc = 1 #The size of the arcs in degrees.
@@ -380,7 +383,7 @@ class CarEnvironment():
         unpaused = unpause_physics()
         while(not unpaused):
             rospy.spinOnce()
-        rospy.sleep(self.stepLength) #Sleep for the step length, letting the action we sent garner a result.
+        rospy.sleep(self.dt_real) #Sleep for the step length, letting the action we sent garner a result.
         pause_physics = rospy.ServiceProxy('/gazebo/pause_physics', Empty) #Pause Gazebo here!
         paused = pause_physics()
         while(not paused):

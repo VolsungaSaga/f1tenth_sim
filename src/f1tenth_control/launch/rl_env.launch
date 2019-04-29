@@ -44,7 +44,8 @@ ode_config:
 
 	<node pkg="f1tenth_control" type="f1tenth_evalLogger.py" name="evaluator" output="screen"/>
 
-
+	<param name="update_rate" value="$(arg update_rate)"/>
+	<param name="time_step_size" value="$(arg time_step_size)"/>
 
 
 </launch>

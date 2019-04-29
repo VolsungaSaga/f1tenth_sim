@@ -1,0 +1,29 @@
+Experimental Parameters
+
+Gamma = 0.99
+Tau = 0.001
+
+
+Hi-Chk-Lo-Gap Parameters         /
+============================   \/
+Checkpoint Weight = 1.25
+Gap Weight = 0.1
+Safety Weight = 0.0
+                                 /
+MaxChk-NoGap-NoSafe Parameters \/
+=============================
+Checkpoint Weight = 1.5
+Gap Weight = 0.0
+Safety Weight = 0.0
+
+NoChk-HiGap-LoSafe Parameters
+===============================
+Checkpoint Weight = 0.0
+Gap Weight = 1.25
+Safe Weight = 0.1
+
+NoChk-HiGap-HiSafe Parameters
+==============================
+Checkpoint Weight = 0.0
+Gap Weight = 1.25
+Safe Weight = 1.25
